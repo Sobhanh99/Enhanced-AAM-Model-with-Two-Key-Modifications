@@ -3,49 +3,50 @@ from image_warp import normalize_shape
 from visualize_pointset import *
 
 import os
-import numpy as np 
-import scipy 
+import numpy as np
+import scipy
 from skimage.color import rgb2gray
 from skimage.io import imsave, imread
 from skimage.transform import resize
 import cv2
 import matplotlib.pyplot as plt
 
-def texture_model(full_res_data, data, connect_from=None, connect_to=None, save_plot_dir = '../results/faces', data_dir = None):
+def texture_model(full_res_data, data, connect_from=None, connect_to=None, save_plot_dir = 'current_results', data_dir = None):
 
 	'''
 	data: (N, W, H): N grayscale images of width W and height H in shape normalized coordinates
 
 	'''
 	os.makedirs(save_plot_dir, exist_ok=True)
-	N, H, W = data.shape
+	print(data.shape)
+	N, H, W, C = data.shape
+	print(N,H,W,C)
 
 	# -----------------------Compute and plot mean texture-------------------------- #
-
 	mean_texture, beta, alpha, normalized_data = compute_mean_texture(data)
-	plt.imshow(cv2.resize(mean_texture[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )), cmap='gray')
 	plt.title('Mean Average Appearance')
+	plt.imshow(cv2.resize(mean_texture[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 ))) #cmap='gray'
 	plt.savefig(os.path.join(save_plot_dir, 'average_normalized_appearace.png'))
 	plt.clf()
 
-	np.save('../results/texture_mean.npy', mean_texture)
+	np.save('current_results\\texture_mean.npy', mean_texture)
 
 	# ------------------------Plot eigenvalues-------------------------- #
 
 	g_normalized = normalized_data.reshape(N, -1) # Consistent with the original AAM paper notations
-	
+
 
 	try:
-		cov_matrix = np.load('../results/texture_cov.npy')
-		eig_values = np.load('../results/texture_eigvalues.npy')
-		eig_vecs = np.load('../results/texture_eigvecs.npy')
+		cov_matrix = np.load('current_results\\texture_cov.npy')
+		eig_values = np.load('current_results\\texture_eigvalues.npy')
+		eig_vecs = np.load('current_results\\texture_eigvecs.npy')
 	except:
 		cov_matrix = np.cov(g_normalized.T - mean_texture.reshape(mean_texture.size, 1))
 		eig_values, eig_vecs = scipy.linalg.eig(cov_matrix)
-		np.save('../results/texture_cov.npy', cov_matrix)
-		np.save('../results/texture_eigvalues.npy', eig_values)
-		np.save('../results/texture_eigvecs.npy', eig_vecs)
-	
+		np.save('current_results\\texture_cov.npy', cov_matrix)
+		np.save('current_results\\texture_eigvalues.npy', eig_values)
+		np.save('current_results\\texture_eigvecs.npy', eig_vecs)
+
 	idx = eig_values.argsort()[::-1]
 	eig_values = eig_values[idx]
 	eig_vecs = eig_vecs[:,idx]
@@ -61,20 +62,23 @@ def texture_model(full_res_data, data, connect_from=None, connect_to=None, save_
 
 		var_plus = mean_texture + scale*np.sqrt(np.real(eig_values[i]))*np.real(eig_vecs[:,i]).reshape(mean_texture.shape)
 		var_minus = mean_texture - scale*np.sqrt(np.real(eig_values[i]))*np.real(eig_vecs[:,i]).reshape(mean_texture.shape)
-		return var_plus, var_minus
+        
+		var_plus_norm = (var_plus - np.min(var_plus)) / (np.max(var_plus) - np.min(var_plus))
+		var_minus_norm = (var_minus - np.min(var_minus)) / (np.max(var_minus) - np.min(var_minus))
+		return var_plus_norm, var_minus_norm
 
 	var_1_plus, var_1_minus = get_modes_of_variation(0)
 
-	f, axarr = plt.subplots(1,3) 
-	axarr[0].imshow(cv2.resize(var_1_minus[0],(mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )) , cmap='gray')
+	f, axarr = plt.subplots(1,3)
+	axarr[0].imshow(cv2.resize(var_1_minus[0],(mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )))
 	axarr[0].title.set_text('Mean - 3 S.D')
 	axarr[0].axis('off')
 
-	axarr[1].imshow(cv2.resize(mean_texture[0],(mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )) , cmap='gray')
+	axarr[1].imshow(cv2.resize(mean_texture[0],(mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )))
 	axarr[1].title.set_text('Mean')
 	axarr[1].axis('off')
 
-	axarr[2].imshow(cv2.resize(var_1_plus[0],(mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )) , cmap='gray')
+	axarr[2].imshow(cv2.resize(var_1_plus[0],(mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )))
 	axarr[2].title.set_text('Mean + 3 S.D')
 	axarr[2].axis('off')
 
@@ -85,16 +89,16 @@ def texture_model(full_res_data, data, connect_from=None, connect_to=None, save_
 
 	var_2_plus, var_2_minus = get_modes_of_variation(1)
 
-	f, axarr = plt.subplots(1,3) 
-	axarr[0].imshow(cv2.resize(var_2_minus[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )), cmap='gray')
+	f, axarr = plt.subplots(1,3)
+	axarr[0].imshow(cv2.resize(var_2_minus[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 ))) #, cmap='gray'
 	axarr[0].title.set_text('Mean - 3 S.D')
 	axarr[0].axis('off')
 
-	axarr[1].imshow(cv2.resize(mean_texture[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )), cmap='gray')
+	axarr[1].imshow(cv2.resize(mean_texture[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )))
 	axarr[1].title.set_text('Mean')
 	axarr[1].axis('off')
 
-	axarr[2].imshow(cv2.resize(var_2_plus[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )), cmap='gray')
+	axarr[2].imshow(cv2.resize(var_2_plus[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )))
 	axarr[2].title.set_text('Mean + 3 S.D')
 	axarr[2].axis('off')
 
@@ -106,16 +110,16 @@ def texture_model(full_res_data, data, connect_from=None, connect_to=None, save_
 
 	var_3_plus, var_3_minus = get_modes_of_variation(2)
 
-	f, axarr = plt.subplots(1,3) 
-	axarr[0].imshow(cv2.resize(var_3_minus[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )), cmap='gray')
+	f, axarr = plt.subplots(1,3)
+	axarr[0].imshow(cv2.resize(var_3_minus[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )))
 	axarr[0].title.set_text('Mean - 3 S.D')
 	axarr[0].axis('off')
 
-	axarr[1].imshow(cv2.resize(mean_texture[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )), cmap='gray')
+	axarr[1].imshow(cv2.resize(mean_texture[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )))
 	axarr[1].title.set_text('Mean')
 	axarr[1].axis('off')
 
-	axarr[2].imshow(cv2.resize(var_3_plus[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )), cmap='gray')
+	axarr[2].imshow(cv2.resize(var_3_plus[0], (mean_texture[0].shape[0]*4,mean_texture[0].shape[1]*4 )))
 	axarr[2].title.set_text('Mean + 3 S.D')
 	axarr[2].axis('off')
 
@@ -127,32 +131,36 @@ def texture_model(full_res_data, data, connect_from=None, connect_to=None, save_
 
 	# -----------------------Compare modes of variations------------------------- #
 
-	closest_mean_index = np.argmin(np.sum( (normalized_data-mean_texture), axis=(1,2) ))
+	closest_mean_index = np.argmin(np.sum( (normalized_data-mean_texture), axis=(1,2,3) ))
 	plt.imshow(full_res_data[closest_mean_index])
 	plt.title('Image closest to mean texture')
 	plt.savefig(os.path.join(save_plot_dir, 'texture_closest_mean.png'))
 	plt.clf()
 
-	closest_var_1_plus_index = np.argmin(np.sum( (normalized_data-var_1_plus), axis=(1,2) ))
+	closest_var_1_plus_index = np.argmin(np.sum( (normalized_data-var_1_plus), axis=(1,2,3) ))
+	if closest_var_1_plus_index>2818:
+		closest_var_1_plus_index=2818
 	plt.imshow(full_res_data[closest_var_1_plus_index])
 	plt.title('Image closest to Mean + 3 S.D. (first mode)')
 	plt.savefig(os.path.join(save_plot_dir, 'texture_closest_var_1_plus.png'))
 	plt.clf()
 
-	closest_var_1_minus_index = np.argmin(np.sum( (normalized_data-var_1_minus), axis=(1,2) ))
+	closest_var_1_minus_index = np.argmin(np.sum( (normalized_data-var_1_minus), axis=(1,2,3) ))
+	if closest_var_1_minus_index>2818:
+		closest_var_1_minus_index=2817
 	plt.imshow(full_res_data[closest_var_1_minus_index])
 	plt.title('Image closest to Mean - 3 S.D. (first mode)')
 	plt.savefig(os.path.join(save_plot_dir, 'texture_closest_var_1_minus.png'))
 	plt.clf()
 
 
-def compute(precomputed_shape_normalized_texture=False):
+def compute(precomputed_shape_normalized_texture=True):
 
-	data_dir = '../data/imm3943/IMM-Frontal Face DB SMALL/'
-	save_data_dir = '../data/shape_normalized_images'
+	data_dir = 'C:\\Users\\Lenovo\\Desktop\\aam\\AAM_code\\gray_scale\\Images and Annotations'
+	save_data_dir = 'C:\\Users\\Lenovo\\Desktop\\aam\\AAM_code\\gray_scale\\warped'
 	N = len(os.listdir(data_dir))-3
 
-	mean_shape_img_path = os.path.join(data_dir, '08_01.jpg') # From shape modeling
+	mean_shape_img_path = os.path.join('C:\\Users\\Lenovo\\Desktop\\aam\\AAM_code\\gray_scale\\Images and Annotations', '13.jpg') # From shape modeling
 
 	os.makedirs(save_data_dir, exist_ok=True)
 
@@ -166,27 +174,20 @@ def compute(precomputed_shape_normalized_texture=False):
 		individual_shape_img_path = os.path.join(data_dir, img_path)
 
 		if not precomputed_shape_normalized_texture:
-			shape_normalized_texture = normalize_shape(individual_shape_img_path, mean_shape_img_path)
+			shape_normalized_texture = normalize_shape(individual_shape_img_path, mean_shape_img_path,show=True)
 			imsave(os.path.join(save_data_dir, img_path), shape_normalized_texture)
 		else:
 			shape_normalized_texture = plt.imread(os.path.join(save_data_dir, img_path))
-			shape_normalized_texture_resize = cv2.resize(shape_normalized_texture, 
+		shape_normalized_texture_resize = cv2.resize(shape_normalized_texture,
 				(shape_normalized_texture.shape[0]//4, shape_normalized_texture.shape[1]//4))
-
-		shape_normalized_texture_data.append(np.expand_dims(rgb2gray(shape_normalized_texture_resize), 0))
+		shape_normalized_texture_data.append(np.expand_dims(shape_normalized_texture_resize, 0))
 		shape_normalized_texture_data_full_res.append(np.expand_dims(shape_normalized_texture,0))
 
 	shape_normalized_texture_data = np.concatenate(shape_normalized_texture_data, axis=0)
 	shape_normalized_texture_data_full_res = np.concatenate(shape_normalized_texture_data_full_res, axis=0)
-	print(shape_normalized_texture_data.shape)
-
-	texture_model(shape_normalized_texture_data_full_res, shape_normalized_texture_data)
+	x_values,y_values,connect_from,connect_to=get_coordinates(arr_SH[0])
+	texture_model(shape_normalized_texture_data_full_res, shape_normalized_texture_data,connect_from,connect_to)
 
 if __name__ == '__main__':
 	np.random.seed(1)
-	compute(True)
-
-
-		
-
-	
+	#compute(True)
