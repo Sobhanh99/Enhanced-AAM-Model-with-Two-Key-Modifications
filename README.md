@@ -10,6 +10,7 @@ Variations in lighting conditions can significantly affect texture representatio
 This technique reduces illumination-driven variability and leads to more consistent texture modeling and reconstruction across heterogeneous datasets.
 ### Comparing Face Generation in original with new version
 Below two faces have been predicted by both versions to have a better comparision
+
 Face1:
 ![Face1 Fitted by old version](https://github.com/Sobhanh99/Active-Appearance-Model-AAM-/blob/master/Face1%20Prediction%20with%20original%20version.png)
 ![Face1 Fitted by New version](https://github.com/Sobhanh99/Active-Appearance-Model-AAM-/blob/master/Face1%20Prediction%20with%20enhanced%20version.png)
