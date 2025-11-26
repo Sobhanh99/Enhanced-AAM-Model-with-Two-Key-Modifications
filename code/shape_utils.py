@@ -1,16 +1,18 @@
-import numpy as np 
+#shape utils
+
+
+import numpy as np
 
 def compute_preshape_space(z):
 
-	centroid = np.mean(z, axis=1, keepdims=True)
+	centroid = np.mean(z, axis=None)
 
-	# Put points on the same hyperplane
 	z_prime = z - centroid
 
-	z_prime_norm = np.linalg.norm(z_prime, axis=(1,2), keepdims=True)
+	z_prime_norm = np.linalg.norm(z_prime, axis=None)
 
 	# Put points on the same hypersphere
-	z_preshape = z_prime/z_prime_norm 
+	z_preshape = z_prime/z_prime_norm
 
 	return z_preshape
 
@@ -24,7 +26,7 @@ def compute_optimal_rotation(z1, z2):
 	R = np.matmul(Vt.T, U.T)
 
 	if np.linalg.det(R) == 1:
-		return R 
+		return R
 	else:
 		M = np.eye(U.shape[0])
 		M[-1,-1] = -1
@@ -35,48 +37,39 @@ def compute_mean(pointsets):
 
 	z = pointsets
 	z_mean = np.expand_dims(z[0], axis=0)
-
+	#print("z_mean new:",z_mean[0])
 	prev_z_mean = z_mean
 
 	while True:
 
 		# For a given Mean, Find optimal transformation parameters
-		# import pdb; pdb.set_trace()
-
-		z = compute_preshape_space(z)
+		zn=np.zeros(z.shape)
+		for i in range(z.shape[0]):         # added to avoid decreasing value when the len increasing
+			zn[i]=compute_preshape_space(z[i])
 		z_mean = compute_preshape_space(z_mean)
-
-		for i in range(z.shape[0]):
-			R = compute_optimal_rotation(z[i], z_mean[0])
-			z[i] = np.matmul(R, z[i])
+		for i in range(zn.shape[0]):
+			R = compute_optimal_rotation(zn[i], z_mean[0])
+			zn[i] = np.matmul(R, zn[i])
 
 		# Find mean for a given theta
-		z_mean = np.mean(z, axis=0, keepdims=True)
+		z_mean = np.mean(zn, axis=0, keepdims=True)
 		z_mean = z_mean/np.linalg.norm(z_mean)
 
 		if np.linalg.norm(prev_z_mean-z_mean) < 0.00001:
-			break 
+			break
 
 		prev_z_mean = z_mean
 
-	return z_mean, z
+	return z_mean, zn
 
 
 def compute_covariance_matrix(Z, mean):
-	# mean - 1xnxd
-	# z - Nxnxd
-
 	N = Z.shape[0]
 	z_vec_dim = Z.shape[1]*Z.shape[2]
 	mean = mean.reshape((1,z_vec_dim))
 	mean = mean.T
 	Z = Z.reshape((N,z_vec_dim))
 	Z = Z.T
-
-	# mean - ndx1
-	# Z - ndxN
-
-	# cov_matrix = np.matmul(Z-mean, (Z-mean).T)
 	cov_matrix = np.cov(Z)
 
 	return cov_matrix
@@ -102,8 +95,9 @@ def get_closest_pointset(z, mean):
 	return z[min_dist_index], min_dist_index
 
 def preshape_to_image_space(z_preshape, shape_mean_x_coord, shape_mean_y_coord):
-
+	#centroid_x = np.mean(np.concatenate([shape_mean_x_coord[20:45],shape_mean_x_coord[23:25],shape_mean_x_coord[42:46]],axis=0))
 	centroid_x = np.mean(shape_mean_x_coord)
+	#print(centroid_x.shape)
 	centroid_y = np.mean(shape_mean_y_coord)
 
 	z_mean = np.concatenate((np.expand_dims(shape_mean_x_coord,1), np.expand_dims(shape_mean_y_coord,1)), axis=1)
@@ -115,14 +109,10 @@ def preshape_to_image_space(z_preshape, shape_mean_x_coord, shape_mean_y_coord):
 	z_preshape = np.expand_dims(np.dot(R, z_preshape[0]), 0)
 
 
-	pointset_norm = np.linalg.norm(z_mean-np.mean(z_mean, axis=(0,1)), keepdims=True)
+	pointset_norm = np.linalg.norm(z_mean-np.mean(z_mean, axis=(0,1)))
 
 	z_img = z_preshape*pointset_norm
 	z_img[0,:, 0] += centroid_x
 	z_img[0,:, 1] += centroid_y
 
-
 	return z_img
-
-
-
